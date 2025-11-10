@@ -10,14 +10,12 @@ const PADDING = 16;
 const SIDEBAR_WIDTH = 90;   // coluna de pipes à esquerda
 const HUD_HEIGHT = 110;      // faixa reservada para HUD
 
-// Estados da célula
-const Cell = Object.freeze({ FREE: 0, BLOCKED: 1, OCCUPIED: 2 });
-
-// Tipos de cano
+// Enums
+const CellState = Object.freeze({ FREE: 0, BLOCKED: 1});
 const PipeKind = Object.freeze({
   H: 0,          // horizontal
   V: 1,          // vertical
-  CROSS: 2,      // cruz (4 vias)
+  CROSS: 2,      // cruz
   CURVE_UR: 3,   // curva: up -> right (↑→)
   CURVE_RD: 4,   // curva: right -> down (→↓)
   CURVE_DL: 5,   // curva: down -> left (↓←)
@@ -25,9 +23,7 @@ const PipeKind = Object.freeze({
 });
 
 // ====== Util ======
-function totalSize(count, cell, gap) {
-    return count * (cell + gap) - gap;
-}
+function totalSize(count, cell, gap) { return count * (cell + gap) - gap; }
 const gridTotalW = totalSize(COLS, CELL_SIZE, GAP_SIZE);
 const gridTotalH = totalSize(ROWS, CELL_SIZE, GAP_SIZE);
 
@@ -48,18 +44,18 @@ function roundRect(x, y, w, h, r = 10) {
 let selectedX = 0, selectedY = 0;
 
 const grid = Array.from({ length: ROWS }, () =>
-    Array.from({ length: COLS }, () => Cell.FREE)
+    Array.from({ length: COLS }, () => ({ state: CellState.FREE, pipe: null }))
 );
 
-function cycleState(x, y) {
-    grid[y][x] = (grid[y][x] + 1) % 3; // FREE -> BLOCKED -> OCCUPIED -> FREE
-}
-function toggleBlocked(x, y) {
-    grid[y][x] = grid[y][x] === Cell.BLOCKED ? Cell.FREE : Cell.BLOCKED;
-}
-function toggleOccupied(x, y) {
-    grid[y][x] = grid[y][x] === Cell.OCCUPIED ? Cell.FREE : Cell.OCCUPIED;
-}
+// “Estoque” da sidebar
+let inventory = [
+  PipeKind.V,
+  PipeKind.CROSS,
+  PipeKind.CURVE_UR,
+  PipeKind.CURVE_RD,
+  PipeKind.CURVE_DL,
+  PipeKind.CURVE_LU
+];
 
 // ====== Layout dinâmico ======
 function computeLayout() {
@@ -142,7 +138,7 @@ function drawPipeIcon(kind, x, y, size) {
     const cy = y + size / 2;
     const th = Math.max(8, Math.floor(size * 0.18)); // espessura
     const a = size * 0.18; // margem interna
-    const b = size * 0.82;
+    const b = size * 0.82; // margem interna
 
     ctx.save();
     ctx.lineWidth = th;
@@ -251,20 +247,19 @@ function drawGrid(gridArea) {
             const cy = gridArea.y + y * (CELL_SIZE + GAP_SIZE);
 
             // Fundo por estado
-            const state = grid[y][x];
-            if (state === Cell.FREE) ctx.fillStyle = '#2a2a3a';
-            else if (state === Cell.BLOCKED) ctx.fillStyle = '#475569';
-            else ctx.fillStyle = '#334155';
-
+            const cell = grid[y][x];
+            ctx.fillStyle = (cell.state === CellState.FREE) ? '#2a2a3a' : '#475569';
             ctx.fillRect(cx, cy, CELL_SIZE, CELL_SIZE);
 
-            // Ícone para "ocupado"
-            if (state === Cell.OCCUPIED) {
-                ctx.beginPath();
-                ctx.arc(cx + CELL_SIZE / 2, cy + CELL_SIZE / 2, CELL_SIZE * 0.22, 0, Math.PI * 2);
-                ctx.fillStyle = '#cbd5e1';
-                ctx.fill();
+            // desenha pipe se houver
+            if (cell.pipe != null) {
+                drawPipeIcon(cell.pipe, cx, cy, CELL_SIZE);
             }
+
+            // borda
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#3a3a4a';
+            ctx.strokeRect(cx, cy, CELL_SIZE, CELL_SIZE);
 
             // Borda da célula
             ctx.lineWidth = 2;
@@ -291,11 +286,21 @@ function drawAll() {
     drawHUD(hud);
 }
 
-// ====== Navegação no grid ======
+// ====== Ações ======
+// Navegação no grid
 function moveSelection(dx, dy) {
     selectedX = clamp(selectedX + dx, 0, COLS - 1);
     selectedY = clamp(selectedY + dy, 0, ROWS - 1);
     drawAll();
+}
+
+// Coloca o proximo cano na célula selecionada
+function placeFromSidebar() {
+  if (inventory.length === 0) return;
+  const cell = grid[selectedY][selectedX];
+  if (cell.state === CellState.BLOCKED) return;
+  const pipe = inventory.pop();
+  cell.pipe = pipe;
 }
 
 // ====== Input ======
@@ -313,19 +318,14 @@ canvas.addEventListener('keydown', (e) => {
 
         case ' ': // espaço: ciclo visual
             e.preventDefault();
-            cycleState(selectedX, selectedY);
+            placeFromSidebar();
             drawAll();
             break;
 
         case 'b':
         case 'B':
-            toggleBlocked(selectedX, selectedY);
-            drawAll();
-            break;
-
-        case 'o':
-        case 'O':
-            toggleOccupied(selectedX, selectedY);
+            const cell = grid[selectedY][selectedX];
+            cell.state = (cell.state === CellState.BLOCKED) ? CellState.FREE : CellState.BLOCKED;
             drawAll();
             break;
     }
