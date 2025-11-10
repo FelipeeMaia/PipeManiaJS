@@ -13,18 +13,19 @@ const HUD_HEIGHT = 110;      // faixa reservada para HUD
 // Enums
 const CellState = Object.freeze({ FREE: 0, BLOCKED: 1 });
 const PipeKind = Object.freeze({
-    H: 0,          // horizontal
-    V: 1,          // vertical
-    CROSS: 2,      // cruz
-    CURVE_UR: 3,   // curva: up -> right (↑→)
-    CURVE_RD: 4,   // curva: right -> down (→↓)
-    CURVE_DL: 5,   // curva: down -> left (↓←)
-    CURVE_LU: 6    // curva: left -> up (←↑)
+    Starter: 0,
+    H: 1,          // horizontal
+    V: 2,          // vertical
+    CROSS: 3,      // cruz
+    CURVE_UR: 4,   // curva: up -> right (↑→)
+    CURVE_RD: 5,   // curva: right -> down (→↓)
+    CURVE_DL: 6,   // curva: down -> left (↓←)
+    CURVE_LU: 7    // curva: left -> up (←↑)
 });
 
 function randomPipe() {
     const pipeCount = Object.keys(PipeKind).length;
-    const randomIndex = Math.floor(Math.random() * pipeCount);
+    const randomIndex = Math.floor(Math.random() * (pipeCount - 1));
     return Object.values(PipeKind)[randomIndex];
 }
 
@@ -54,7 +55,7 @@ const grid = Array.from({ length: ROWS }, () =>
 );
 
 // “Estoque” da sidebar
-let inventory = Array.from({ length: 6 }, () => randomPipe());
+let inventory;
 
 // ====== Layout dinâmico ======
 function computeLayout() {
@@ -143,11 +144,23 @@ function drawPipeIcon(kind, x, y, size) {
 
     ctx.save();
     ctx.lineWidth = th;
-    ctx.strokeStyle = '#93c5fd';
+    ctx.strokeStyle = kind === PipeKind.Starter ? '#facc15' : '#93c5fd';
     ctx.lineCap = 'butt';
     ctx.lineJoin = 'round';
 
     switch (kind) {
+        case PipeKind.Starter: // cano inicial
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(x + b, cy);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, th * 0.8, 0, Math.PI * 2);
+            ctx.fillStyle = '#facc15';
+            ctx.fill();
+            break;
+
         case PipeKind.H: // horizontal
             ctx.beginPath();
             ctx.moveTo(x + a, cy);
@@ -337,5 +350,30 @@ canvas.addEventListener('keydown', (e) => {
 });
 canvas.addEventListener('pointerdown', () => canvas.focus());
 
-// Primeiro desenho
-drawAll();
+function startGame() {
+    //Limpa variaveis
+
+    //Limpa o grid
+    for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+            let cell = grid[y][x];
+            cell.pipe = null;
+            cell.state = CellState.FREE;
+        }
+    }
+
+    //Determina celulas bloqueadas
+
+    //Determina posição inicial
+
+    // Preenche o inventario
+    inventory = Array.from({ length: 6 }, () => randomPipe());
+
+    //Desenha o grid
+    drawAll();
+
+    //Inicia os Timers
+}
+
+startGame();
+
