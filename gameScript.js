@@ -138,9 +138,8 @@ function drawSidebar(sidebar) {
 function drawPipeIcon(kind, x, y, size) {
     const cx = x + size / 2;
     const cy = y + size / 2;
-    const th = Math.max(8, Math.floor(size * 0.18)); // espessura
-    const a = size * 0.18; // margem interna
-    const b = size * 0.82; // margem interna
+    const th = Math.max(8, Math.floor(size * 0.3)); // espessura
+    const r = size / 2;
 
     ctx.save();
     ctx.lineWidth = th;
@@ -152,7 +151,7 @@ function drawPipeIcon(kind, x, y, size) {
         case PipeKind.Starter: // cano inicial
             ctx.beginPath();
             ctx.moveTo(cx, cy);
-            ctx.lineTo(x + b, cy);
+            ctx.lineTo(x + size, cy);
             ctx.stroke();
 
             ctx.beginPath();
@@ -163,56 +162,56 @@ function drawPipeIcon(kind, x, y, size) {
 
         case PipeKind.H: // horizontal
             ctx.beginPath();
-            ctx.moveTo(x + a, cy);
-            ctx.lineTo(x + b, cy);
+            ctx.moveTo(x, cy);
+            ctx.lineTo(x + size, cy);
             ctx.stroke();
             break;
 
         case PipeKind.V: // vertical
             ctx.beginPath();
-            ctx.moveTo(cx, y + a);
-            ctx.lineTo(cx, y + b);
+            ctx.moveTo(cx, y);
+            ctx.lineTo(cx, y + size);
             ctx.stroke();
             break;
 
         case PipeKind.CROSS: // cruz (4 vias)
             ctx.beginPath();
-            ctx.moveTo(x + a, cy);
-            ctx.lineTo(x + b, cy);
-            ctx.moveTo(cx, y + a);
-            ctx.lineTo(cx, y + b);
+            ctx.moveTo(x, cy);
+            ctx.lineTo(x + size, cy);
+            ctx.moveTo(cx, y);
+            ctx.lineTo(cx, y + size);
             ctx.stroke();
             break;
 
         case PipeKind.CURVE_UR: // ↑→
             ctx.beginPath();
-            ctx.moveTo(cx, y + a);
+            ctx.moveTo(cx, y);
             ctx.lineTo(cx, cy);
-            ctx.lineTo(x + b, cy);
+            ctx.lineTo(x + size, cy);
             ctx.stroke();
             break;
 
         case PipeKind.CURVE_RD: // →↓
             ctx.beginPath();
-            ctx.moveTo(x + b, cy);
+            ctx.moveTo(x, cy);
             ctx.lineTo(cx, cy);
-            ctx.lineTo(cx, y + b);
+            ctx.lineTo(cx, y + size);
             ctx.stroke();
             break;
 
         case PipeKind.CURVE_DL: // ↓←
             ctx.beginPath();
-            ctx.moveTo(cx, y + b);
+            ctx.moveTo(cx, y);
             ctx.lineTo(cx, cy);
-            ctx.lineTo(x + a, cy);
+            ctx.lineTo(x + size, cy);
             ctx.stroke();
             break;
 
         case PipeKind.CURVE_LU: // ←↑
             ctx.beginPath();
-            ctx.moveTo(x + a, cy);
+            ctx.moveTo(x, cy);
             ctx.lineTo(cx, cy);
-            ctx.lineTo(cx, y + a);
+            ctx.lineTo(cx, y + size);
             ctx.stroke();
             break;
     }
