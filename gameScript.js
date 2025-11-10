@@ -25,7 +25,7 @@ const PipeKind = Object.freeze({
 
 function randomPipe() {
     const pipeCount = Object.keys(PipeKind).length;
-    const randomIndex = Math.floor(Math.random() * (pipeCount - 1));
+    const randomIndex = Math.floor(Math.random() * (pipeCount - 1)) + 1;
     return Object.values(PipeKind)[randomIndex];
 }
 
@@ -362,6 +362,25 @@ function startGame() {
     }
 
     //Determina celulas bloqueadas
+    let cellsToBlock = 0;
+    const minBlockedCells = 1;
+    const maxBlockedCells = 10;
+    if (maxBlockedCells > minBlockedCells) {
+        const difference = maxBlockedCells - minBlockedCells;
+        const randomAmmount = Math.floor(Math.random() * (difference + 1));
+        cellsToBlock = minBlockedCells + randomAmmount;
+    }
+
+    while (cellsToBlock > 0) {
+        const randomY = Math.floor(Math.random() * ROWS);
+        const randomX = Math.floor(Math.random() * COLS);
+        const randomCell = grid[randomY][randomX];
+
+        if (randomCell.state === CellState.FREE) {
+            randomCell.state = CellState.BLOCKED;
+            cellsToBlock--;
+        }
+    }
 
     //Determina posição inicial
 
