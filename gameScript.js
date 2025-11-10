@@ -11,16 +11,22 @@ const SIDEBAR_WIDTH = 90;   // coluna de pipes à esquerda
 const HUD_HEIGHT = 110;      // faixa reservada para HUD
 
 // Enums
-const CellState = Object.freeze({ FREE: 0, BLOCKED: 1});
+const CellState = Object.freeze({ FREE: 0, BLOCKED: 1 });
 const PipeKind = Object.freeze({
-  H: 0,          // horizontal
-  V: 1,          // vertical
-  CROSS: 2,      // cruz
-  CURVE_UR: 3,   // curva: up -> right (↑→)
-  CURVE_RD: 4,   // curva: right -> down (→↓)
-  CURVE_DL: 5,   // curva: down -> left (↓←)
-  CURVE_LU: 6    // curva: left -> up (←↑)
+    H: 0,          // horizontal
+    V: 1,          // vertical
+    CROSS: 2,      // cruz
+    CURVE_UR: 3,   // curva: up -> right (↑→)
+    CURVE_RD: 4,   // curva: right -> down (→↓)
+    CURVE_DL: 5,   // curva: down -> left (↓←)
+    CURVE_LU: 6    // curva: left -> up (←↑)
 });
+
+function randomPipe() {
+    const pipeCount = Object.keys(PipeKind).length;
+    const randomIndex = Math.floor(Math.random() * pipeCount);
+    return Object.values(PipeKind)[randomIndex];
+}
 
 // ====== Util ======
 function totalSize(count, cell, gap) { return count * (cell + gap) - gap; }
@@ -48,14 +54,7 @@ const grid = Array.from({ length: ROWS }, () =>
 );
 
 // “Estoque” da sidebar
-let inventory = [
-  PipeKind.V,
-  PipeKind.CROSS,
-  PipeKind.CURVE_UR,
-  PipeKind.CURVE_RD,
-  PipeKind.CURVE_DL,
-  PipeKind.CURVE_LU
-];
+let inventory = Array.from({ length: 6 }, () => randomPipe());
 
 // ====== Layout dinâmico ======
 function computeLayout() {
@@ -106,27 +105,29 @@ function drawSidebar(sidebar) {
     ctx.stroke();
 
     // Título
-    ctx.fillStyle = '#cbd5e1';
+    /*ctx.fillStyle = '#cbd5e1';
     ctx.font = '16px system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial';
-    ctx.fillText('Pipes', sidebar.x + 14, sidebar.y + 24);
+    ctx.fillText('Pipes', sidebar.x + 14, sidebar.y + 24);*/
 
-    // Slots visuais
-    const slots = 6;
-    const slotSize = 56;
-    const slotGap = 12;
-    let sx = sidebar.x + 14;
-    let sy = sidebar.y + 42;
+    // Slots
+    const slotSize = 56, slotGap = 14;
+    const totalH = inventory.length * slotSize + (inventory.length - 1) * slotGap;
+    const sx = sidebar.x + (sidebar.w - slotSize) / 2;
+    let sy = sidebar.y + (sidebar.h - totalH) / 2;
 
-    for (let i = 0; i < slots; i++) {
+    for (let i = 0; i < inventory.length; i++) {
+        const isActive = i === inventory.length - 1;
+
+        ctx.beginPath();
         roundRect(sx, sy, slotSize, slotSize, 10);
-        ctx.fillStyle = '#1e293b';
+        ctx.fillStyle = isActive ? '#1e3a8a' : '#1e293b';
         ctx.fill();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = '#334155';
+
+        ctx.lineWidth = isActive ? 3 : 2;
+        ctx.strokeStyle = isActive ? '#60a5fa' : '#334155';
         ctx.stroke();
 
-        // Ícone simples de pipe, variando para dar visual
-        drawPipeIcon((i % 7), sx, sy, slotSize);
+        drawPipeIcon(inventory[i], sx, sy, slotSize);
 
         sy += slotSize + slotGap;
     }
@@ -147,61 +148,61 @@ function drawPipeIcon(kind, x, y, size) {
     ctx.lineJoin = 'round';
 
     switch (kind) {
-    case PipeKind.H: // horizontal
-      ctx.beginPath();
-      ctx.moveTo(x + a, cy);
-      ctx.lineTo(x + b, cy);
-      ctx.stroke();
-      break;
+        case PipeKind.H: // horizontal
+            ctx.beginPath();
+            ctx.moveTo(x + a, cy);
+            ctx.lineTo(x + b, cy);
+            ctx.stroke();
+            break;
 
-    case PipeKind.V: // vertical
-      ctx.beginPath();
-      ctx.moveTo(cx, y + a);
-      ctx.lineTo(cx, y + b);
-      ctx.stroke();
-      break;
+        case PipeKind.V: // vertical
+            ctx.beginPath();
+            ctx.moveTo(cx, y + a);
+            ctx.lineTo(cx, y + b);
+            ctx.stroke();
+            break;
 
-    case PipeKind.CROSS: // cruz (4 vias)
-      ctx.beginPath();
-      ctx.moveTo(x + a, cy);
-      ctx.lineTo(x + b, cy);
-      ctx.moveTo(cx, y + a);
-      ctx.lineTo(cx, y + b);
-      ctx.stroke();
-      break;
+        case PipeKind.CROSS: // cruz (4 vias)
+            ctx.beginPath();
+            ctx.moveTo(x + a, cy);
+            ctx.lineTo(x + b, cy);
+            ctx.moveTo(cx, y + a);
+            ctx.lineTo(cx, y + b);
+            ctx.stroke();
+            break;
 
-    case PipeKind.CURVE_UR: // ↑→
-      ctx.beginPath();
-      ctx.moveTo(cx, y + a);
-      ctx.lineTo(cx, cy);
-      ctx.lineTo(x + b, cy);
-      ctx.stroke();
-      break;
+        case PipeKind.CURVE_UR: // ↑→
+            ctx.beginPath();
+            ctx.moveTo(cx, y + a);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(x + b, cy);
+            ctx.stroke();
+            break;
 
-    case PipeKind.CURVE_RD: // →↓
-      ctx.beginPath();
-      ctx.moveTo(x + b, cy);
-      ctx.lineTo(cx, cy);
-      ctx.lineTo(cx, y + b);
-      ctx.stroke();
-      break;
+        case PipeKind.CURVE_RD: // →↓
+            ctx.beginPath();
+            ctx.moveTo(x + b, cy);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(cx, y + b);
+            ctx.stroke();
+            break;
 
-    case PipeKind.CURVE_DL: // ↓←
-      ctx.beginPath();
-      ctx.moveTo(cx, y + b);
-      ctx.lineTo(cx, cy);
-      ctx.lineTo(x + a, cy);
-      ctx.stroke();
-      break;
+        case PipeKind.CURVE_DL: // ↓←
+            ctx.beginPath();
+            ctx.moveTo(cx, y + b);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(x + a, cy);
+            ctx.stroke();
+            break;
 
-    case PipeKind.CURVE_LU: // ←↑
-      ctx.beginPath();
-      ctx.moveTo(x + a, cy);
-      ctx.lineTo(cx, cy);
-      ctx.lineTo(cx, y + a);
-      ctx.stroke();
-      break;
-  }
+        case PipeKind.CURVE_LU: // ←↑
+            ctx.beginPath();
+            ctx.moveTo(x + a, cy);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(cx, y + a);
+            ctx.stroke();
+            break;
+    }
 
     ctx.restore();
 }
@@ -296,11 +297,15 @@ function moveSelection(dx, dy) {
 
 // Coloca o proximo cano na célula selecionada
 function placeFromSidebar() {
-  if (inventory.length === 0) return;
-  const cell = grid[selectedY][selectedX];
-  if (cell.state === CellState.BLOCKED) return;
-  const pipe = inventory.pop();
-  cell.pipe = pipe;
+    if (inventory.length === 0) return;
+
+    const cell = grid[selectedY][selectedX];
+    if (cell.state === CellState.BLOCKED) return;
+
+    const pipe = inventory.pop();
+    cell.pipe = pipe;
+
+    inventory.unshift(randomPipe());
 }
 
 // ====== Input ======
