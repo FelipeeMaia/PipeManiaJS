@@ -49,6 +49,7 @@ function roundRect(x, y, w, h, r = 10) {
 
 // ====== Grade / Estados ======
 let selectedX = 0, selectedY = 0;
+let startX, startY;
 
 const grid = Array.from({ length: ROWS }, () =>
     Array.from({ length: COLS }, () => ({ state: CellState.FREE, pipe: null }))
@@ -364,7 +365,7 @@ function startGame() {
     //Determina celulas bloqueadas
     let cellsToBlock = 0;
     const minBlockedCells = 1;
-    const maxBlockedCells = 10;
+    const maxBlockedCells = 4;
     if (maxBlockedCells > minBlockedCells) {
         const difference = maxBlockedCells - minBlockedCells;
         const randomAmmount = Math.floor(Math.random() * (difference + 1));
@@ -383,6 +384,25 @@ function startGame() {
     }
 
     //Determina posição inicial
+    startX = -1, startY = -1;
+    while (startX === -1 || startY === -1) {
+        const randomY = Math.floor(Math.random() * (ROWS - 1));
+        const randomX = Math.floor(Math.random() * (COLS - 1));
+
+        const randomCell = grid[randomY][randomX];
+        const cellBellow = grid[randomY + 1][randomX];
+        const cellRight = grid[randomY][randomX + 1];
+
+        if (randomCell.state != CellState.BLOCKED &&
+            cellBellow.state != CellState.BLOCKED &&
+            cellRight.state != CellState.BLOCKED
+        ) {
+            randomCell.pipe = PipeKind.Starter;
+            randomCell.state = CellState.BLOCKED;
+            startX = randomX;
+            startY = randomY;
+        }
+    }
 
     // Preenche o inventario
     inventory = Array.from({ length: 6 }, () => randomPipe());
