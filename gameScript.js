@@ -29,6 +29,27 @@ function randomPipe() {
     return Object.values(PipeKind)[randomIndex];
 }
 
+// ====== Direções (bitmask) ======
+const Dir = Object.freeze({ N:1, E:2, S:4, W:8 });
+const Opp = Object.freeze({ [Dir.N]:Dir.S, [Dir.E]:Dir.W, [Dir.S]:Dir.N, [Dir.W]:Dir.E });
+
+// Mapa de conexões por cano (quais lados estão "abertos")
+const PIPE_CONNECTIONS = {
+  [PipeKind.Starter]: Dir.E,                    // center -> right
+  [PipeKind.H]:       Dir.W | Dir.E,
+  [PipeKind.V]:       Dir.N | Dir.S,
+  [PipeKind.CROSS]:   Dir.N | Dir.E | Dir.S | Dir.W,
+  [PipeKind.CURVE_UR]:Dir.N | Dir.E,           // ↑→ (top, right)
+  [PipeKind.CURVE_RD]:Dir.E | Dir.S,           // →↓ (right, bottom)
+  [PipeKind.CURVE_DL]:Dir.S | Dir.W,           // ↓← (bottom, left)
+  [PipeKind.CURVE_LU]:Dir.W | Dir.N            // ←↑ (left, top)
+};
+
+function isOpen(kind, dir) {
+    const mask = PIPE_CONNECTIONS[kind] ?? 0;
+    return (mask & dir) !== 0;
+}
+
 // ====== Util ======
 function totalSize(count, cell, gap) { return count * (cell + gap) - gap; }
 const gridTotalW = totalSize(COLS, CELL_SIZE, GAP_SIZE);
@@ -194,7 +215,7 @@ function drawPipeIcon(kind, x, y, size) {
 
         case PipeKind.CURVE_RD: // →↓
             ctx.beginPath();
-            ctx.moveTo(x, cy);
+            ctx.moveTo(x + size, cy);
             ctx.lineTo(cx, cy);
             ctx.lineTo(cx, y + size);
             ctx.stroke();
@@ -202,9 +223,9 @@ function drawPipeIcon(kind, x, y, size) {
 
         case PipeKind.CURVE_DL: // ↓←
             ctx.beginPath();
-            ctx.moveTo(cx, y);
+            ctx.moveTo(cx, y + size);
             ctx.lineTo(cx, cy);
-            ctx.lineTo(x + size, cy);
+            ctx.lineTo(x, cy);
             ctx.stroke();
             break;
 
@@ -212,7 +233,89 @@ function drawPipeIcon(kind, x, y, size) {
             ctx.beginPath();
             ctx.moveTo(x, cy);
             ctx.lineTo(cx, cy);
+            ctx.lineTo(cx, y);
+            ctx.stroke();
+            break;
+    }
+
+    ctx.restore();
+}
+
+function drawWaterOverlay(kind, x, y, size) {
+    if (kind == null) return;
+
+    const cx = x + size / 2;
+    const cy = y + size / 2;
+    const th = Math.max(6, Math.floor(size * 0.18)); // um pouco mais fino que o cano
+    const r = size / 2;
+
+    ctx.save();
+    ctx.lineWidth = th;
+    ctx.strokeStyle = '#22d3ee'; // ciano "água"
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'round';
+    ctx.globalAlpha = 0.9;
+
+    switch (kind) {
+        case PipeKind.Starter:
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.lineTo(x + size, cy);
+            ctx.stroke();
+            break;
+
+        case PipeKind.H:
+            ctx.beginPath();
+            ctx.moveTo(x, cy);
+            ctx.lineTo(x + size, cy);
+            ctx.stroke();
+            break;
+
+        case PipeKind.V:
+            ctx.beginPath();
+            ctx.moveTo(cx, y);
             ctx.lineTo(cx, y + size);
+            ctx.stroke();
+            break;
+
+        case PipeKind.CROSS:
+            ctx.beginPath();
+            ctx.moveTo(x, cy);
+            ctx.lineTo(x + size, cy);
+            ctx.moveTo(cx, y);
+            ctx.lineTo(cx, y + size);
+            ctx.stroke();
+            break;
+
+        case PipeKind.CURVE_UR: // ↑→
+            ctx.beginPath();
+            ctx.moveTo(cx, y);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(x + size, cy);
+            ctx.stroke();
+            break;
+
+        case PipeKind.CURVE_RD: // →↓
+            ctx.beginPath();
+            ctx.moveTo(x + size, cy);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(cx, y + size);
+            ctx.stroke();
+            break;
+
+        case PipeKind.CURVE_DL: // ↓←
+            ctx.beginPath();
+            ctx.moveTo(cx, y + size);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(x, cy);
+            ctx.stroke();
+            break;
+
+        case PipeKind.CURVE_LU: // ←↑
+            ctx.beginPath();
+            ctx.moveTo(x, cy);
+            ctx.lineTo(cx, cy);
+            ctx.lineTo(cx, y);
             ctx.stroke();
             break;
     }
@@ -268,14 +371,14 @@ function drawGrid(gridArea) {
             // desenha pipe se houver
             if (cell.pipe != null) {
                 drawPipeIcon(cell.pipe, cx, cy, CELL_SIZE);
+
+                // desenha água se o cano esta conectada ao starter
+                if (waterFlow[y][x]) {
+                    drawWaterOverlay(cell.pipe, cx, cy, CELL_SIZE);
+                }
             }
 
             // borda
-            ctx.lineWidth = 2;
-            ctx.strokeStyle = '#3a3a4a';
-            ctx.strokeRect(cx, cy, CELL_SIZE, CELL_SIZE);
-
-            // Borda da célula
             ctx.lineWidth = 2;
             ctx.strokeStyle = '#3a3a4a';
             ctx.strokeRect(cx, cy, CELL_SIZE, CELL_SIZE);
@@ -319,6 +422,55 @@ function placeFromSidebar() {
     cell.pipe = pipe;
 
     inventory.unshift(randomPipe());
+    computeFlow();
+}
+
+// ====== Estado de fluxo (água) ======
+let waterFlow = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+
+// Recalcula todo o fluxo de água a partir do Starter
+function computeFlow() {
+    // limpa
+    for (let y = 0; y < ROWS; y++) waterFlow[y].fill(false);
+
+    if (startX == null || startY == null) return;
+    const startCell = grid[startY][startX];
+    if (startCell.pipe !== PipeKind.Starter) return;
+
+    // BFS
+    const q = [];
+    waterFlow[startY][startX] = true;
+    q.push({ x: startX, y: startY });
+
+    while (q.length) {
+        const { x, y } = q.shift();
+        const cell = grid[y][x];
+        const kind = cell.pipe;
+
+        if (kind == null) continue;
+
+        // Para cada direção aberta deste cano, tenta ir ao vizinho
+        const tryGo = (dir, nx, ny) => {
+            // limites
+            if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) return;
+            const neighbor = grid[ny][nx];
+            // precisa ter cano aberto e recíproco
+            if (neighbor.pipe == null) return;
+            if (!isOpen(kind, dir)) return;
+            if (neighbor.state == CellState.BLOCKED) return;
+            if (!isOpen(neighbor.pipe, Opp[dir])) return;
+            if (!waterFlow[ny][nx]) {
+                waterFlow[ny][nx] = true;
+                q.push({ x: nx, y: ny });
+            }
+        };
+
+        // tenta em todas as direções que este cano permite
+        if (isOpen(kind, Dir.N)) tryGo(Dir.N, x, y - 1);
+        if (isOpen(kind, Dir.E)) tryGo(Dir.E, x + 1, y);
+        if (isOpen(kind, Dir.S)) tryGo(Dir.S, x, y + 1);
+        if (isOpen(kind, Dir.W)) tryGo(Dir.W, x - 1, y);
+    }
 }
 
 // ====== Input ======
@@ -340,10 +492,8 @@ canvas.addEventListener('keydown', (e) => {
             drawAll();
             break;
 
-        case 'b':
-        case 'B':
-            const cell = grid[selectedY][selectedX];
-            cell.state = (cell.state === CellState.BLOCKED) ? CellState.FREE : CellState.BLOCKED;
+        case 'Enter':
+            computeFlow();
             drawAll();
             break;
     }
@@ -406,6 +556,8 @@ function startGame() {
 
     // Preenche o inventario
     inventory = Array.from({ length: 6 }, () => randomPipe());
+
+    computeFlow();
 
     //Desenha o grid
     drawAll();
